@@ -1,54 +1,36 @@
-// const myName = "Ann";
-// console.log(myName);
+import fs from 'fs';
+import * as readline from 'node:readline';
+import { pipeline } from 'stream';
 
-// console.log(process.argv);
-// const args = process.argv.slice(2) //отрезать первые 2
-// console.log(`args: ${args[0]}`);
+function search(props) {
+    const readableStream = fs.createReadStream(
+        // '../access_tmp.log',
+        'log.txt',
+        'utf8'
+    );
 
-// вывод ПРОСТЫХ чисел: зелёный, жёлтый, красный
+    props.map((ip) => {
+        const filename = '%' + ip + '%_requests.log';
+        const searchStr = ip;
 
-const range = [...process.argv.slice(2)].map(el => Number(el)); //вернет массив из 2х чисел
-const start = range[0];
-const end = range[1];
-let color = {
-    1: '32',
-    2: '33',
-    3: '31'
-};
-let rangeNumber = 1;
-let hasSimpleInt = false;
+        const writeableStream = fs.createWriteStream(filename);
 
-if (!Number.isInteger(start) || !Number.isInteger(end)) {
-    console.log('\x1b[31m Error: not integer \x1b[0m');
-} else {
-    if (end < start) {
-        console.log('\x1b[31m Incorrect values! \x1b[0m'); //32 33 31
-    } else {
-        if (start < 2) {
-            start = 2;
-        }
-        let num = start;
-        if (start === 2) {
-            console.log(`\x1b[${color[rangeNumber]}m ${num} \x1b[0m`);
-            rangeNumber ++;
-        }
-    
-        while (num <= end) {
-            for (let i = 2; i < num; i++) {
-                if (num % i === 0) {
-                    // console.log(`${num} делится на ${i} без остатка, выход`);
-                    i = num;
-                    continue;
+        // function check() {
+            const rl = readline.createInterface({ input: readableStream, output: writeableStream });
+
+            rl.on('line', (line) => {
+                if (line.includes(searchStr)) {
+                    console.log(`Received line: ${line}`);;
+                    writeableStream.write(line);
                 }
-                if (i === num - 1) {
-                    console.log(`\x1b[${color[rangeNumber]}m ${num} \x1b[0m`);
-                    rangeNumber ++;
-                    if (rangeNumber > 3) rangeNumber = 1;
-                    hasSimpleInt = true;
-                }
-            }
-            num ++;
-        }
-        if (hasSimpleInt === false) console.log('\x1b[31m No simple integers! \x1b[0m');
-    }
+            });
+        // }
+        // readableStream.pipe(rl);
+        // readableStream.pipe(check).pipe(writeableStream);
+        pipeline(readableStream, rl, writeableStream, (err) => {
+            err && console.error(err);
+        });
+    })
 }
+
+search(['89.123.1.41', '176.212.24.22']);
