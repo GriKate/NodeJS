@@ -1,62 +1,55 @@
-import readline from 'readline';
-import inquirer from "inquirer";
-import fsp from 'fs/promises';
+import http from "http";
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
-import { stdout } from 'process';
-import { stat } from 'node:fs';
-import { stdin as input, stdout as output } from 'node:process';
+import url from 'url';
+import { findRoute } from './routing.js'
 
-function showFile(dirname) {
-    fsp
-        .readdir(path.join(dirname)) // вернет список файлов в __dirname
-        .then((choices) => {
-            return inquirer
-            .prompt([{
-                name: "fileName",
-                type: 'list', // input, number, confirm, list, rawlist, expand, checkbox, password
-                message: "Choose file",
-                choices // в value здесь список файлов
+const host = 'localhost'
+const port = '3000'
+const dirname = 'C:/Users/user/$Обучение/17 Node js/node-base'
+
+fsp
+    .readdir(path.join(dirname))
+    .then((files) => {
+        const routes = {
+            "/:filename": (params) => {
+                return files.find(item => item === +params.filename)
             },
-            {
-                name: "searchString",
-                type: 'input',
-                message: "Enter the string to search in file: ",
-                choices
+        }
+        fs.readFile('./index.html', (err, html) => {
+            if (err) {
+                throw err; 
             }
-            ])
-        })
-        .then(({ fileName, searchString }) => {
-            const currentDir = path.join(dirname, fileName);
-            // console.log(searchString);
-            stat(currentDir, (err, stats) => {
-                // console.log(stats);
-                if (stats.isDirectory()) {
-                    console.log(`Directory ${fileName}`);
-                    
-                    console.log(`Path ${currentDir}`);
-                    showFile(currentDir);
-                } else {
-                    // console.log(`file: ${currentDir}`);
-                    const rs = fs.createReadStream(currentDir, 'utf8');
-                    const rl = readline.createInterface({input: rs});
 
-                    rl.on('line', (line) => {
-                        if (line.includes(searchString)) {
-                            const ws = fs.createWriteStream('match.js');
-                            ws.write(line);
-                        }
-                    })
+
+
+            http.createServer((req, res) => {
+                if (req.method === 'GET') {
+                    if (req.url !== '/favicon.ico') {
+                        const queryParams = url.parse(req.url, true)
+                        const routeParams = findRoute(req.url.split('?')[0], routes)
+                        const [ routeCallback, params ] = routeParams;
+                        console.log(params)
+
+                        // const currentFile = params;
+                        // если currentFile - директория, заходим
+                        // если это файл - читаем
+                    }
                 }
-            });
+                    let div = ``;
+                    for (const el of files) {
+                        div += `<div>${el}</div>`
+                    }
+                res.writeHeader(200, {"Content-Type": "text/html"});
+                res.write(html + div);
+                res.end();
+            }).listen(port, host, () => console.log(`Server at ${host} ${port}`));
         })
-}
+    })
 
-const rl = readline.createInterface({ input, output });
-
-rl.question('Input the path:', (answer) => {
-    console.log(`Path: ${answer}`);
-    const __dirname = answer;
-    rl.close()
-    showFile(__dirname);
-}); 
+    // fsp
+    // .readdir(path.join(dirname))
+    // .then((files) => {
+    //     console.log(files.join('\n'))
+    // })

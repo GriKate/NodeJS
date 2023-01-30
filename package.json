@@ -1,7 +1,6 @@
 {
   "name": "prj",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,7 +10,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-react-app": "^3.1.2",
     "inquirer": "^9.1.4",
     "node-fetch": "^3.3.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GriKate/NodeJS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GriKate/NodeJS/issues"
+  },
+  "homepage": "https://github.com/GriKate/NodeJS#readme",
+  "description": ""
 }
