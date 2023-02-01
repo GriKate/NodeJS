@@ -1,1 +1,1 @@
-console.log(22222)
+import { stat } from 'node:fs';
