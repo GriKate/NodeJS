@@ -4,10 +4,45 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Messanger</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" 
+    integrity="sha384-/KNQL8Nu5gCHLqwqfQjA689Hhoqgi2S84SNUxC3roTe4EhJ9AfLkp8QiQcU8AMzI" 
+    crossorigin="anonymous">
+    </script>
 </head>
-<body style="margin-left: 30px;">
-    <h3>For watching file or directory enter the filename to URL</h3>
-    <h1>Current file / directory:</h1>
+<body>
+    <h1>Messanger</h1>
+    <input type="text" id="input" autofocus>
+    <input type="submit" id="send" value="Send">
+    <div id="app"></div>
 </body>
+<script type="text/javascript">
+    const username = '';
+    // ф-ия io() доступна из скрипта, подключаемся к серверу localhost:3000
+    const socket = io('localhost:3000');
+
+    
+
+    socket.on('connect', () => {
+        console.log('Connection with localhost:3000 created');
+    })
+    // сервер присылает сообщения от юзеров
+    socket.on('server-msg', ({ name, msg }) => {
+        console.log(name)
+        const nameSpan = document.createElement('span').innerHTML = name
+        const msgSpan = document.createElement('span').innerHTML = msg
+        const delimiter = document.createElement('span').innerHTML = ':  '
+        document.getElementById('app').append(nameSpan)
+        document.getElementById('app').append(delimiter)
+        document.getElementById('app').append(msgSpan)
+        document.getElementById('app').append(document.createElement('br'))
+    })
+
+    // отправляем сообщение этого юзера
+    document.getElementById('send')
+        .onclick = function() {
+            socket.emit('client-msg', { msg: document.getElementById('input').value })
+            document.getElementById('input').value = ''
+        }
+</script>
 </html>
