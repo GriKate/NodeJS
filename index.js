@@ -1,77 +1,84 @@
 import http from "http";
-import fs from 'fs';
-import fsp from 'fs/promises';
-import { readFile, stat } from 'node:fs/promises';
-// import { stat } from 'node:fs';
-import path from 'path';
-import url from 'url';
-import { findRoute } from './routing.js'
+import { Server } from 'socket.io';
+import fs from "fs";
+import path from "path";
+import { serialize, parse } from "cookie";
 
-const host = 'localhost'
-const port = '3000'
-const dirname = 'C:/Users/user/$Обучение/17 Node js/node-base'
+const host = "localhost";
+const port = 3000;
 
-const readHtml = async (filePath) => {
-    const contents = await readFile(filePath, { encoding: 'utf8' });
-    return contents;
+
+const server = http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    const filePath = path.join(process.cwd(), "./index.html");
+    const rs = fs.createReadStream(filePath);
+
+    rs.pipe(res);
+  }
+});
+
+const setId = () => {
+    const id = Math.floor(Math.random()*100);
+    return id;
 }
 
-const isDir = async (filePath) => {
-    const a = await stat(filePath).then(stats => {
-        return stats.isDirectory();
-    })
-    return a
+const createName = () => {
+  const alph = 'abcdefghijklmnopqrstuvwzyz';
+  let name = '';
+  for(let i = 0; i<4; i++) {
+    const randInd = Math.floor(Math.random() * alph.length);
+    name += alph[randInd];
+  }
+  console.log(name)
+  return name;
 }
 
-const showFile = async (filePath) => {
-    const fileType = await isDir(filePath)
+const io = new Server(server);
 
-    if (fileType) {
-        const files = fsp.readdir(path.join(filePath))
-        return files;
-    } else {
-        const file = readFile(filePath, { encoding: 'utf8' });
-        return file;
+// поставит куку с id при каждой перезагрузке стр
+// мне нужно 1 раз поставить и читать
+// io.engine.on("initial_headers", (headers, request) => {
+//     headers["set-cookie"] = serialize("id", setId(), { sameSite: "strict" });
+// });
+
+io.engine.on("headers", (headers, request) => {
+    if (!request.headers.cookie) return;
+    const cookies = parse(request.headers.cookie);
+    if (!cookies.id) {
+      headers["set-cookie"] = [
+        serialize("id", setId(), { maxAge: 86400 }), 
+        serialize("username", createName(), { maxAge: 86400 })
+      ];
     }
-}
+});
 
-const routes = {
-    "/": () => {
-        const html = readHtml('./index.html')
-        const fileName = dirname;
-        const currentFile = showFile(fileName)
-        console.log(html + currentFile)
-        // return html + currentFile;
-        return currentFile;
-    },
-    "/:filename": (params) => {
-        const fileName = path.join(dirname, params.filename);
-        const currentFile = showFile(fileName)
-        return currentFile;
-    }
-}
+io.on('connection', (client) => {
+  // при загрузке стр автоматич подключаемся к вебсокету
+  console.log(`Websocket connetcted ${client.id}`);
 
-http
-.createServer((req, res) => {
-    let file = ``;
-    const queryParams = url.parse(req.url, true)
-    const routeParams = findRoute(req.url.split('?')[0], routes)
-    const [ routeCallback, params ] = routeParams;
+  // client.conn - ссылка на socket
+  const cookies = parse(client.conn.request.headers.cookie || ""); 
+  const username = cookies.username;
+  client.broadcast.emit('server-msg', { name: username, msg: 'connected' })
 
-    if (req.method === 'GET') {
-        if (req.url !== '/favicon.ico') {
-            if (typeof routeCallback === 'function') {
-                routeCallback(params)
-                .then(data => {
-                    file = data;
-                    if (typeof file !== 'string') {
-                        // console.log('file   ' + typeof file)
-                        file = file.join(', ')
-                    }
-                    res.writeHeader(200, {"Content-Type": "text/html"});
-                    res.end(file);
-                })
-            }
-        }
-    }
-}).listen(port, host, () => console.log(`Server at ${host} ${port}`));
+  // 'client-msg' приходит с фронта, там эмитится значение инпута
+  client.on('client-msg', (data) => {
+    client.broadcast.emit('server-msg', { name: username, msg: data.msg })
+    client.emit('server-msg', { name: username, msg: data.msg })
+  })
+})
+
+// получаю куки клиента для отправки статуса юзера
+io.on("connection", (socket) => {
+  const cookies = parse(socket.request.headers.cookie || ""); 
+  const username = cookies.username;
+
+  socket.on("disconnect", (reason) => {
+  // client.conn.on("disconnect", (reason) => {
+    socket.broadcast.emit('server-msg', { name: username, msg: 'disconnected' })
+  });
+});
+
+server.listen(port, host, () =>
+  console.log(`Server running at http://${host}:${port}`)
+);
