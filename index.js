@@ -1,62 +1,77 @@
-import readline from 'readline';
-import inquirer from "inquirer";
-import fsp from 'fs/promises';
+import http from "http";
 import fs from 'fs';
+import fsp from 'fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+// import { stat } from 'node:fs';
 import path from 'path';
-import { stdout } from 'process';
-import { stat } from 'node:fs';
-import { stdin as input, stdout as output } from 'node:process';
+import url from 'url';
+import { findRoute } from './routing.js'
 
-function showFile(dirname) {
-    fsp
-        .readdir(path.join(dirname)) // вернет список файлов в __dirname
-        .then((choices) => {
-            return inquirer
-            .prompt([{
-                name: "fileName",
-                type: 'list', // input, number, confirm, list, rawlist, expand, checkbox, password
-                message: "Choose file",
-                choices // в value здесь список файлов
-            },
-            {
-                name: "searchString",
-                type: 'input',
-                message: "Enter the string to search in file: ",
-                choices
-            }
-            ])
-        })
-        .then(({ fileName, searchString }) => {
-            const currentDir = path.join(dirname, fileName);
-            // console.log(searchString);
-            stat(currentDir, (err, stats) => {
-                // console.log(stats);
-                if (stats.isDirectory()) {
-                    console.log(`Directory ${fileName}`);
-                    
-                    console.log(`Path ${currentDir}`);
-                    showFile(currentDir);
-                } else {
-                    // console.log(`file: ${currentDir}`);
-                    const rs = fs.createReadStream(currentDir, 'utf8');
-                    const rl = readline.createInterface({input: rs});
+const host = 'localhost'
+const port = '3000'
+const dirname = 'C:/Users/user/$Обучение/17 Node js/node-base'
 
-                    rl.on('line', (line) => {
-                        if (line.includes(searchString)) {
-                            const ws = fs.createWriteStream('match.js');
-                            ws.write(line);
-                        }
-                    })
-                }
-            });
-        })
+const readHtml = async (filePath) => {
+    const contents = await readFile(filePath, { encoding: 'utf8' });
+    return contents;
 }
 
-const rl = readline.createInterface({ input, output });
+const isDir = async (filePath) => {
+    const a = await stat(filePath).then(stats => {
+        return stats.isDirectory();
+    })
+    return a
+}
 
-rl.question('Input the path:', (answer) => {
-    console.log(`Path: ${answer}`);
-    const __dirname = answer;
-    rl.close()
-    showFile(__dirname);
-}); 
+const showFile = async (filePath) => {
+    const fileType = await isDir(filePath)
+
+    if (fileType) {
+        const files = fsp.readdir(path.join(filePath))
+        return files;
+    } else {
+        const file = readFile(filePath, { encoding: 'utf8' });
+        return file;
+    }
+}
+
+const routes = {
+    "/": () => {
+        const html = readHtml('./index.html')
+        const fileName = dirname;
+        const currentFile = showFile(fileName)
+        console.log(html + currentFile)
+        // return html + currentFile;
+        return currentFile;
+    },
+    "/:filename": (params) => {
+        const fileName = path.join(dirname, params.filename);
+        const currentFile = showFile(fileName)
+        return currentFile;
+    }
+}
+
+http
+.createServer((req, res) => {
+    let file = ``;
+    const queryParams = url.parse(req.url, true)
+    const routeParams = findRoute(req.url.split('?')[0], routes)
+    const [ routeCallback, params ] = routeParams;
+
+    if (req.method === 'GET') {
+        if (req.url !== '/favicon.ico') {
+            if (typeof routeCallback === 'function') {
+                routeCallback(params)
+                .then(data => {
+                    file = data;
+                    if (typeof file !== 'string') {
+                        // console.log('file   ' + typeof file)
+                        file = file.join(', ')
+                    }
+                    res.writeHeader(200, {"Content-Type": "text/html"});
+                    res.end(file);
+                })
+            }
+        }
+    }
+}).listen(port, host, () => console.log(`Server at ${host} ${port}`));
